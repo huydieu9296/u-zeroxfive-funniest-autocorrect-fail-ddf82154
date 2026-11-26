@@ -8,24 +8,45 @@ const ENTRY =
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-// The entry text is also kept in entry.txt next to this script. If it is
-// present it must agree with the embedded entry; if it is absent (for
-// example a harness that copies only main.ts) the embedded text is used.
-let TEXT = ENTRY;
-const entryPath = join(HERE, "entry.txt");
-if (existsSync(entryPath)) {
+// The entry text is also kept in entry.txt next to this script. When that
+// file is present it must agree with the embedded entry; when it is absent
+// (for example a harness that copies only main.ts) the embedded text is used.
+function entryFromFile(): string | null {
+  const entryPath = join(HERE, "entry.txt");
+  if (!existsSync(entryPath)) return null;
   const fromFile = readFileSync(entryPath, "utf8").trim();
-  if (fromFile.length > 0 && fromFile !== ENTRY) {
-    throw new Error("entry.txt does not match the entry embedded in main.ts");
+  return fromFile.length > 0 ? fromFile : null;
+}
+
+function validateEntry(text: string): void {
+  if (text.length < 1 || text.length > 200) {
+    throw new Error(`entry must be 1-200 characters, got ${text.length}`);
+  }
+  if (text.includes("\n")) {
+    throw new Error("entry must be exactly one line");
+  }
+  const stops = (text.match(/\./g) ?? []).length;
+  if (stops !== 1) {
+    throw new Error(`entry must be exactly one sentence, found ${stops} periods`);
+  }
+  if (!text.endsWith(".")) {
+    throw new Error("entry must end with a period");
+  }
+  if (!text.includes("'I love you'")) {
+    throw new Error("entry must keep the autocorrected phrase");
   }
 }
 
-if (TEXT.length < 1 || TEXT.length > 200) {
-  throw new Error(`entry must be 1-200 characters, got ${TEXT.length}`);
+const fromFile = entryFromFile();
+if (fromFile !== null && fromFile !== ENTRY) {
+  throw new Error("entry.txt does not match the entry embedded in main.ts");
 }
-if (TEXT.includes("\n") || (TEXT.match(/\./g) ?? []).length !== 1) {
-  throw new Error("entry must be exactly one sentence on one line");
-}
+
+const TEXT = ENTRY;
+validateEntry(TEXT);
+
+// A short preview on stdout so a run can be eyeballed without opening the file.
+console.log(`entry (${TEXT.length} chars): ${TEXT}`);
 
 const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
 mkdirSync(outDir, { recursive: true });
